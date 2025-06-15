@@ -1,4 +1,4 @@
-from flask import Flask, request, abort
+from flask import Flask, request, abort, render_template
 from dotenv import load_dotenv
 import os, sqlite3, datetime
 from linebot import LineBotApi, WebhookHandler
@@ -30,15 +30,16 @@ init_db()
 
 @app.route("/")
 def index():
-    return "✅ LINE Bot Cloud is running."
+    return "✅ LINE Bot with Web UI is running."
 
 @app.route("/callback", methods=['POST'])
 def callback():
-    signature = request.headers['X-Line-Signature']
+    signature = request.headers.get('X-Line-Signature')
     body = request.get_data(as_text=True)
     try:
         handler.handle(body, signature)
-    except:
+    except Exception as e:
+        print("ERROR:", e)
         abort(400)
     return 'OK'
 
@@ -56,8 +57,7 @@ def handle_message(event):
         timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
         filename = f"static/images/image_{timestamp}.jpg"
         with open(filename, "wb") as f:
-            for chunk in content.iter_content():
-                f.write(chunk)
+            f.write(content.content)
         image_path = filename
 
     if text or image_path:
@@ -72,6 +72,23 @@ def handle_message(event):
             event.reply_token,
             TextSendMessage(text="✅ รับข้อมูลแล้ว")
         )
+
+@app.route("/history")
+def history():
+    conn = sqlite3.connect("database.db")
+    c = conn.cursor()
+    c.execute("SELECT text, image_path, timestamp FROM records ORDER BY id DESC")
+    records = c.fetchall()
+    conn.close()
+
+    html = "<h2>📋 ประวัติการส่งข้อมูล</h2><ul>"
+    for text, image_path, timestamp in records:
+        html += f"<li><b>{timestamp}</b><br>ข้อความ: {text or '-'}<br>"
+        if image_path:
+            html += f"<img src='/{image_path}' width='300'><br>"
+        html += "</li><hr>"
+    html += "</ul>"
+    return html
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
