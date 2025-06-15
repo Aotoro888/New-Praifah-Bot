@@ -1,6 +1,7 @@
 from flask import Flask, request, abort, render_template
 from dotenv import load_dotenv
 import os, sqlite3, datetime
+from pytz import timezone
 from linebot import LineBotApi, WebhookHandler
 from linebot.models import MessageEvent, TextMessage, ImageMessage, TextSendMessage
 
@@ -63,8 +64,10 @@ def handle_message(event):
     if text or image_path:
         conn = sqlite3.connect("database.db")
         c = conn.cursor()
+        tz = timezone('Asia/Bangkok')
+        timestamp = datetime.datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
         c.execute("INSERT INTO records (text, image_path, timestamp) VALUES (?, ?, ?)",
-                  (text, image_path, datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                  (text, image_path, timestamp))
         conn.commit()
         conn.close()
 
